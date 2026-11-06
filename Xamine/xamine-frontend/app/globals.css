@@ -1,0 +1,8 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body { @apply bg-surface text-ink font-sans antialiased; }
+:focus-visible { outline: 3px solid #f5b50a; outline-offset: 2px; }
+/* Easier to tap on phones: action links and buttons inside tables */
+td a, td button { display: inline-block; padding: 0.5rem 0.25rem; }
