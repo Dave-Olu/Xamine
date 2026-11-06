@@ -33,23 +33,44 @@
   img,svg{display:block;}
   .wrap{max-width:1120px;margin:0 auto;padding:0 24px;}
 
+<<<<<<< HEAD
+  /* ---------- Header — sticky ---------- */
+  header{
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background:var(--purple-950);
+    color:var(--white);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+=======
   /* ---------- Header ---------- */
   header{
     background:var(--purple-950);
     color:var(--white);
+>>>>>>> 65b605b9502f56a50531ff866e8884a015cff7e7
   }
   .nav{
     display:flex;align-items:center;justify-content:space-between;
     padding:20px 0;
   }
+<<<<<<< HEAD
+  .brand{display:flex;align-items:center;gap:12px;text-decoration:none;}
+=======
   .brand{display:flex;align-items:center;gap:12px;}
+>>>>>>> 65b605b9502f56a50531ff866e8884a015cff7e7
   .badge{
     width:42px;height:42px;border-radius:50%;
     background:linear-gradient(155deg,var(--gold-400),var(--gold-500));
     display:flex;align-items:center;justify-content:center;
     font-family:'Fraunces',serif;font-weight:700;font-size:15px;color:var(--purple-950);
     flex-shrink:0;
+<<<<<<< HEAD
+    overflow:hidden;
   }
+  .badge img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+=======
+  }
+>>>>>>> 65b605b9502f56a50531ff866e8884a015cff7e7
   .brand-name{font-size:15px;font-weight:700;letter-spacing:0.02em;line-height:1.2;}
   .brand-sub{font-size:11px;color:var(--gold-200);letter-spacing:0.14em;text-transform:uppercase;}
   .nav-links{display:flex;gap:28px;font-size:14px;font-weight:600;}
@@ -60,6 +81,16 @@
     padding:9px 18px;border-radius:999px;font-weight:700;font-size:13px;
     text-decoration:none;
   }
+<<<<<<< HEAD
+  .nav-home{
+    background:transparent;color:var(--gold-200);
+    border:1.5px solid rgba(255,255,255,0.22);
+    padding:8px 16px;border-radius:999px;font-weight:600;font-size:13px;
+    text-decoration:none;transition:border-color .2s,color .2s;
+  }
+  .nav-home:hover{border-color:var(--gold-400);color:var(--gold-400);}
+=======
+>>>>>>> 65b605b9502f56a50531ff866e8884a015cff7e7
 
   /* ---------- Hero ---------- */
   .hero{
@@ -301,4 +332,460 @@
     .perf-line::after{right:-30px;}
     .pass-stub, form, .confirm{padding-left:20px;padding-right:20px;}
     .nav-links{display:none;}
+<<<<<<< HEAD
   }
+
+
+  /* ═══════════════════════════════════════════════════════
+     ANIMATIONS — registration.css
+  ═══════════════════════════════════════════════════════ */
+
+  /* ── Keyframes ─────────────────────────────────────── */
+  @keyframes reg-fadeSlideUp {
+    from { opacity: 0; transform: translateY(32px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes reg-scaleIn {
+    from { opacity: 0; transform: scale(0.85); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  @keyframes passFloat {
+    0%, 100% { transform: rotate(3deg) translateY(0px); }
+    50%       { transform: rotate(3deg) translateY(-10px); }
+  }
+  @keyframes fieldPulse {
+    0%   { box-shadow: 0 0 0 0 rgba(207,159,46,0.4); }
+    70%  { box-shadow: 0 0 0 6px rgba(207,159,46,0); }
+    100% { box-shadow: 0 0 0 0 rgba(207,159,46,0); }
+  }
+  @keyframes ripple {
+    from { transform: scale(0); opacity: 0.5; }
+    to   { transform: scale(4); opacity: 0; }
+  }
+  @keyframes confirmPop {
+    0%   { opacity: 0; transform: scale(0.7) translateY(20px); }
+    65%  { transform: scale(1.04) translateY(-4px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  @keyframes checkDraw {
+    from { stroke-dashoffset: 40; }
+    to   { stroke-dashoffset: 0; }
+  }
+  @keyframes badgeSpin {
+    from { transform: rotate(-15deg) scale(0); opacity: 0; }
+    to   { transform: rotate(0deg) scale(1); opacity: 1; }
+  }
+  @keyframes prog-fill {
+    from { width: 0; }
+    to   { width: var(--prog-w, 0%); }
+  }
+  @keyframes orbFloatReg {
+    0%, 100% { transform: translate(0, 0); }
+    50%       { transform: translate(-16px, 20px); }
+  }
+  @keyframes reg-gradientShift {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  /* ── Page load ──────────────────────────────────────── */
+  body { animation: reg-fadeSlideUp 0.5s ease both; }
+
+  /* ── Scroll-reveal ──────────────────────────────────── */
+  .reg-reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.6s cubic-bezier(0.16,1,0.3,1),
+                transform 0.6s cubic-bezier(0.16,1,0.3,1);
+  }
+  .reg-reveal.visible { opacity: 1; transform: none; }
+
+  .reg-reveal-group > * {
+    opacity: 0;
+    transform: translateY(22px);
+    transition: opacity 0.5s cubic-bezier(0.16,1,0.3,1),
+                transform 0.5s cubic-bezier(0.16,1,0.3,1);
+  }
+  .reg-reveal-group.visible > *:nth-child(1) { transition-delay:0.05s; opacity:1; transform:none; }
+  .reg-reveal-group.visible > *:nth-child(2) { transition-delay:0.13s; opacity:1; transform:none; }
+  .reg-reveal-group.visible > *:nth-child(3) { transition-delay:0.21s; opacity:1; transform:none; }
+  .reg-reveal-group.visible > *:nth-child(4) { transition-delay:0.29s; opacity:1; transform:none; }
+  .reg-reveal-group.visible > *:nth-child(5) { transition-delay:0.37s; opacity:1; transform:none; }
+  .reg-reveal-group.visible > *:nth-child(6) { transition-delay:0.45s; opacity:1; transform:none; }
+
+  /* ── Mini pass float ────────────────────────────────── */
+  .mini-pass {
+    animation: passFloat 5s ease-in-out infinite;
+    transition: box-shadow 0.3s ease;
+  }
+  .mini-pass:hover {
+    animation-play-state: paused;
+    box-shadow: 0 40px 80px -20px rgba(0,0,0,0.65);
+  }
+
+  /* ── Hero background orbs ───────────────────────────── */
+  .hero { position: relative; overflow: hidden; }
+  .reg-orb {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    filter: blur(80px);
+    opacity: 0.18;
+  }
+  .reg-orb--1 {
+    width: 380px; height: 380px;
+    background: radial-gradient(circle, #6B2FA0, transparent 70%);
+    top: -100px; right: -80px;
+    animation: orbFloatReg 10s ease-in-out infinite;
+  }
+  .reg-orb--2 {
+    width: 260px; height: 260px;
+    background: radial-gradient(circle, var(--gold-500), transparent 70%);
+    bottom: -60px; left: 5%;
+    animation: orbFloatReg 14s ease-in-out infinite reverse;
+  }
+
+  /* ── Header animation ───────────────────────────────── */
+  header {
+    animation: reg-fadeSlideUp 0.5s ease both;
+  }
+
+  /* ── Form field focus pulse ─────────────────────────── */
+  input[type=text]:focus,
+  input[type=email]:focus,
+  input[type=tel]:focus,
+  input[type=number]:focus,
+  select:focus {
+    animation: fieldPulse 0.5s ease forwards;
+  }
+
+  /* ── Submit button ripple container ─────────────────── */
+  .btn-submit {
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-ripple {
+    position: absolute;
+    width: 10px; height: 10px;
+    background: rgba(255,255,255,0.5);
+    border-radius: 50%;
+    pointer-events: none;
+    transform: scale(0);
+    animation: ripple 0.6s ease-out forwards;
+  }
+
+  /* ── Progress bar ───────────────────────────────────── */
+  .reg-progress {
+    position: fixed;
+    top: 0; left: 0;
+    height: 3px;
+    width: 0%;
+    background: linear-gradient(90deg, var(--gold-400), var(--purple-600), var(--gold-500));
+    background-size: 200% 100%;
+    animation: reg-gradientShift 2s linear infinite;
+    transition: width 0.4s cubic-bezier(0.16,1,0.3,1);
+    z-index: 9999;
+    border-radius: 0 2px 2px 0;
+  }
+
+  /* ── Confirmation panel animation ───────────────────── */
+  .confirm.show {
+    animation: confirmPop 0.55s cubic-bezier(0.34,1.56,0.64,1) both;
+  }
+  .confirm .ok-badge {
+    animation: badgeSpin 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.2s both;
+  }
+  .confirm .ok-badge svg path {
+    stroke-dasharray: 40;
+    stroke-dashoffset: 40;
+    animation: checkDraw 0.45s ease 0.55s forwards;
+  }
+
+  /* ── Program cards stagger ──────────────────────────── */
+  .prog-card {
+    transition: border-color 0.2s, transform 0.25s cubic-bezier(0.34,1.56,0.64,1),
+                box-shadow 0.2s;
+  }
+  .prog-card:hover {
+    transform: translateY(-6px) scale(1.02);
+    box-shadow: 0 20px 40px -16px rgba(28,15,51,0.25);
+  }
+
+  /* ── Pass card entrance ─────────────────────────────── */
+  .pass {
+    animation: reg-scaleIn 0.65s cubic-bezier(0.34,1.2,0.64,1) 0.2s both;
+  }
+
+  /* ── Radio pill hover ───────────────────────────────── */
+  .radio-pill label {
+    transition: all 0.2s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .radio-pill label:hover {
+    border-color: var(--gold-500);
+    color: var(--ink);
+    transform: scale(1.04);
+  }
+
+  /* ── Nav-home hover ─────────────────────────────────── */
+  .nav-home {
+    transition: border-color 0.2s, color 0.2s, transform 0.2s;
+  }
+  .nav-home:hover { transform: translateX(-3px); }
+
+  /* ═══════════════════════════════════════════════════════
+     ICONS — field labels
+  ═══════════════════════════════════════════════════════ */
+  .field label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .field label i {
+    color: var(--gold-500);
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  /* ── Nav link icon gap ──────────────────────────────── */
+  .nav-links a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     HAMBURGER — registration page
+  ═══════════════════════════════════════════════════════ */
+  .reg-hamburger {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    width: 38px; height: 38px;
+    background: none;
+    border: 1.5px solid rgba(255,255,255,0.25);
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 0;
+    flex-shrink: 0;
+    z-index: 200;
+  }
+  .reg-hamburger span {
+    display: block;
+    width: 18px; height: 2px;
+    background: var(--white);
+    border-radius: 2px;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+  }
+  .reg-hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+  .reg-hamburger.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
+  .reg-hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+  /* Overlay */
+  .nav-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(28,15,51,0.55);
+    z-index: 140;
+    backdrop-filter: blur(2px);
+  }
+  .nav-overlay.open { display: block; }
+
+  /* ═══════════════════════════════════════════════════════
+     RESPONSIVE — 1024px
+  ═══════════════════════════════════════════════════════ */
+  @media (max-width:1024px) {
+    .programs-grid { grid-template-columns: repeat(3,1fr); }
+    .hero-grid { gap: 36px; }
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     RESPONSIVE — 860px (tablet / large mobile)
+  ═══════════════════════════════════════════════════════ */
+  @media (max-width:860px) {
+
+    /* Wrap */
+    .wrap { padding: 0 18px; }
+
+    /* Header */
+    .nav { padding: 14px 0; }
+
+    /* Show hamburger, hide desktop nav + back button */
+    .reg-hamburger { display: flex; }
+    .nav-home { display: none; }
+
+    /* Mobile nav drawer */
+    .nav-links {
+      display: flex !important;
+      flex-direction: column;
+      gap: 0;
+      position: fixed;
+      top: 0; right: 0;
+      width: min(260px, 78vw);
+      height: 100dvh;
+      background: var(--purple-950);
+      border-left: 1px solid rgba(255,255,255,0.1);
+      padding: 80px 24px 40px;
+      transform: translateX(100%);
+      transition: transform 0.35s cubic-bezier(0.16,1,0.3,1);
+      z-index: 150;
+      box-shadow: -8px 0 32px rgba(0,0,0,0.4);
+      overflow-y: auto;
+    }
+    .nav-links.open { transform: translateX(0); }
+    .nav-links a {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--white);
+      padding: 14px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      gap: 10px;
+      opacity: 1;
+    }
+    .nav-links a:last-child { border-bottom: none; }
+
+    /* Add "Back to home" inside the mobile drawer — real link used instead */
+    .nav-drawer-home {
+      font-size: 13px !important;
+      color: var(--gold-200) !important;
+      font-weight: 600 !important;
+      margin-top: 12px;
+      opacity: 0.85;
+    }
+    .nav-drawer-home:hover { opacity: 1; }
+
+    /* Hero */
+    .hero-grid { grid-template-columns: 1fr; gap: 32px; }
+    .hero-visual { display: none; }
+    .hero { padding: 48px 0 60px; }
+    .hero h1 { font-size: clamp(28px,7vw,42px); }
+    .hero p.lead { font-size: 15.5px; max-width: 100%; }
+    .hero-actions { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .btn-primary, .btn-ghost { width: 100%; text-align: center; justify-content: center; }
+    .stat-row { gap: 20px; }
+
+    /* Programs grid */
+    .programs-grid { grid-template-columns: repeat(2,1fr); gap: 12px; }
+    .section { padding: 56px 0; }
+
+    /* Pass form */
+    .pass-section { padding: 56px 0 72px; }
+    .perf-line { margin: 0 16px; }
+    .perf-line::before { left: -28px; }
+    .perf-line::after  { right: -28px; }
+    .pass-stub { padding: 20px 20px; }
+    form { padding: 28px 20px 32px; }
+    .confirm { padding: 40px 20px 36px; }
+    .form-grid { grid-template-columns: 1fr; }
+    .submit-row { flex-direction: column; align-items: stretch; gap: 12px; }
+    .btn-submit { width: 100%; text-align: center; }
+    .submit-row .fine { max-width: 100%; }
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     RESPONSIVE — 520px (small mobile)
+  ═══════════════════════════════════════════════════════ */
+  @media (max-width:520px) {
+    .wrap { padding: 0 14px; }
+    .hero h1 { font-size: 26px; }
+    .stat-row { flex-wrap: wrap; gap: 16px; }
+    .stat b { font-size: 20px; }
+    .programs-grid { grid-template-columns: 1fr; }
+    .pass { border-radius: 14px; }
+    .pass-head h2 { font-size: 24px; }
+    .radio-row { gap: 8px; }
+    .radio-pill label { padding: 8px 12px; font-size: 12px; }
+    .brand-name { font-size: 13px; }
+    .brand-sub { display: none; }
+    .badge { width: 36px; height: 36px; }
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     FLOATING BUTTONS — registration page
+  ═══════════════════════════════════════════════════════ */
+  .fab-group {
+    position: fixed;
+    bottom: 28px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    z-index: 500;
+  }
+
+  /* Home FAB (unique to registration page) */
+  .fab-home {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: var(--purple-800);
+    color: var(--gold-400);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    text-decoration: none;
+    box-shadow: 0 4px 14px rgba(28,15,51,0.4);
+    transition: transform 0.2s ease, background 0.2s ease;
+  }
+  .fab-home:hover {
+    transform: scale(1.1);
+    background: var(--purple-700);
+  }
+
+  /* WhatsApp FAB */
+  .fab-wa {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: #25D366;
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+    text-decoration: none;
+    box-shadow: 0 4px 18px rgba(37,211,102,0.45);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    animation: pulse-ring-wa-reg 2.6s ease-out infinite;
+  }
+  .fab-wa:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 24px rgba(37,211,102,0.6);
+    animation: none;
+  }
+  @keyframes pulse-ring-wa-reg {
+    0%   { box-shadow: 0 0 0 0 rgba(37,211,102,0.45); }
+    70%  { box-shadow: 0 0 0 12px rgba(37,211,102,0); }
+    100% { box-shadow: 0 0 0 0 rgba(37,211,102,0); }
+  }
+
+  /* Back-to-top FAB */
+  .fab-top {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: var(--purple-950);
+    color: var(--gold-400);
+    border: 1.5px solid rgba(255,255,255,0.15);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(28,15,51,0.3);
+    opacity: 0;
+    transform: translateY(12px);
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease, background 0.2s ease;
+  }
+  .fab-top.visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+  .fab-top:hover { background: var(--purple-800); }
+
+  @media (max-width: 520px) {
+    .fab-group { bottom: 20px; right: 16px; }
+    .fab-wa  { width: 46px; height: 46px; font-size: 20px; }
+    .fab-home, .fab-top { width: 38px; height: 38px; font-size: 14px; }
+  }
+=======
+  }
+>>>>>>> 65b605b9502f56a50531ff866e8884a015cff7e7
