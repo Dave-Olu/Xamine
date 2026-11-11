@@ -49,6 +49,9 @@ export default function LoginPage() {
       <p className="mt-6 text-center text-[15px] text-muted">
         Taking an exam? <Link href="/student" className="font-bold text-brand">Enter your exam number</Link>
       </p>
+            <p className="mt-3 text-center text-[15px] text-muted">
+        School admin with an access code? <Link href="/join" className="font-bold text-brand">Set up your login</Link>
+      </p>
     </>
   );
 }

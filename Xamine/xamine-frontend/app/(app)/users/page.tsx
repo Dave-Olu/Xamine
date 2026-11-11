@@ -1,15 +1,16 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { api, ApiError, type NewUser, type SchoolUser } from "@/lib/api";
 import { CLASSES } from "@/lib/constants";
 import { downloadText, parseCsv } from "@/lib/csv";
+import { isEmail } from "@/lib/validation";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Field } from "@/components/ui/Field";
 import { Select } from "@/components/ui/Select";
 import { Table } from "@/components/ui/Table";
-import Link from "next/link";
 
 export default function UsersPage() {
   const [users, setUsers] = useState<SchoolUser[] | null>(null);
@@ -18,22 +19,31 @@ export default function UsersPage() {
   const [role, setRole] = useState<"teacher" | "student">("student");
   const [className, setClassName] = useState<string>(CLASSES[0]);
   const [subject, setSubject] = useState("");
+  const [email, setEmail] = useState("");
   const [nameError, setNameError] = useState("");
+  const [emailError, setEmailError] = useState("");
   const [message, setMessage] = useState<{ kind: "error" | "success"; text: string } | null>(null);
+  const [credentials, setCredentials] = useState<{ name: string; email: string; password: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refresh = () => api.listUsers().then(setUsers);
   useEffect(() => { refresh(); }, []);
 
-  function reset() { setEditingId(null); setName(""); setSubject(""); setClassName(CLASSES[0]); setRole("student"); setNameError(""); }
+  function reset() {
+    setEditingId(null); setName(""); setSubject(""); setEmail(""); setClassName(CLASSES[0]); setRole("student");
+    setNameError(""); setEmailError("");
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) { setNameError("Enter the full name."); return; }
+    let bad = false;
+    if (!name.trim()) { setNameError("Enter the full name."); bad = true; } else setNameError("");
+    if (role === "teacher" && email.trim() && !isEmail(email)) { setEmailError("Enter a valid email address."); bad = true; } else setEmailError("");
+    if (bad) return;
     const input: NewUser = role === "student"
       ? { name: name.trim(), role, className }
-      : { name: name.trim(), role, subject: subject.trim() };
+      : { name: name.trim(), role, subject: subject.trim(), email: email.trim() || undefined };
     setSaving(true); setMessage(null);
     try {
       if (editingId) await api.updateUser(editingId, input); else await api.createUser(input);
@@ -46,7 +56,8 @@ export default function UsersPage() {
 
   function startEdit(u: SchoolUser) {
     setEditingId(u.id); setName(u.name); setRole(u.role);
-    setClassName(u.className ?? CLASSES[0]); setSubject(u.subject ?? ""); setNameError(""); setMessage(null);
+    setClassName(u.className ?? CLASSES[0]); setSubject(u.subject ?? ""); setEmail(u.email ?? "");
+    setNameError(""); setEmailError(""); setMessage(null);
   }
 
   async function remove(u: SchoolUser) {
@@ -70,12 +81,23 @@ export default function UsersPage() {
     setMessage({ kind: "success", text: `Imported ${created} users${skipped ? `, skipped ${skipped} invalid rows` : ""}.` });
   }
 
-    async function onGenerate() {
+  async function onGenerate() {
     const { created } = await api.generateExamNumbers(); await refresh();
     setMessage({
       kind: "success",
       text: created ? `Created ${created} exam number${created > 1 ? "s" : ""}.` : "All students already have an exam number.",
     });
+  }
+
+  async function createLogin(u: SchoolUser) {
+    setMessage(null); setCredentials(null);
+    try {
+      const { email: mail, tempPassword } = await api.createTeacherLogin(u.id);
+      await refresh();
+      setCredentials({ name: u.name, email: mail, password: tempPassword });
+    } catch (err) {
+      setMessage({ kind: "error", text: err instanceof ApiError ? err.message : "Something went wrong. Try again." });
+    }
   }
 
   return (
@@ -85,8 +107,14 @@ export default function UsersPage() {
         <p className="text-muted">Create and manage teacher and student accounts.</p>
       </div>
       {message && <Alert kind={message.kind}>{message.text}</Alert>}
+      {credentials && (
+        <Alert kind="success">
+          Login created for {credentials.name}. Email: <span className="font-bold">{credentials.email}</span>. Temporary password:{" "}
+          <span className="font-mono font-bold tracking-wider">{credentials.password}</span>. Share it privately. It is shown only once.
+        </Alert>
+      )}
       <div className="flex flex-col gap-6 lg:flex-row">
-                <Card className="min-w-0 flex-1 p-5">
+        <Card className="min-w-0 flex-1 p-5">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-xl font-extrabold">All users</h2>
             <div className="flex flex-wrap gap-2">
@@ -96,7 +124,7 @@ export default function UsersPage() {
                 className="rounded-xl border border-brand px-4 py-2 text-[15px] font-bold text-brand hover:bg-brand-soft">Import list (CSV)</button>
               <button onClick={onGenerate}
                 className="rounded-xl bg-brand px-4 py-2 text-[15px] font-bold text-white hover:bg-brand-dark">Generate exam numbers</button>
-                <Link href="/users/sheet"
+              <Link href="/users/sheet"
                 className="rounded-xl border border-brand px-4 py-2 text-[15px] font-bold text-brand hover:bg-brand-soft">Print exam numbers</Link>
               <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={onImport} aria-label="Import users from CSV" />
             </div>
@@ -104,13 +132,23 @@ export default function UsersPage() {
           {users === null ? <p className="py-6 text-muted">Loading...</p> : users.length === 0 ? (
             <p className="py-6 text-muted">No users yet. Add one using the form.</p>
           ) : (
-            <Table heads={["Name", "Role", "Class or subject", "Exam number", "Action"]}>
+            <Table heads={["Name", "Role", "Class or subject", "Exam number or login", "Action"]} label="Users">
               {users.map((u) => (
                 <tr key={u.id}>
                   <td className="font-semibold">{u.name}</td>
                   <td className="capitalize">{u.role}</td>
                   <td>{u.className ?? u.subject ?? "-"}</td>
-                  <td className="font-mono font-bold tracking-wide">{u.examNumber ?? "-"}</td>
+                  <td>
+                    {u.role === "student" ? (
+                      <span className="font-mono font-bold tracking-wide">{u.examNumber ?? "-"}</span>
+                    ) : u.hasLogin ? (
+                      "Has a login"
+                    ) : u.email ? (
+                      <button onClick={() => createLogin(u)} className="font-bold text-brand">Create login</button>
+                    ) : (
+                      <span className="text-muted">Add an email first</span>
+                    )}
+                  </td>
                   <td className="whitespace-nowrap">
                     <button onClick={() => startEdit(u)} className="mr-4 font-bold text-brand">Edit</button>
                     <button onClick={() => remove(u)} className="font-bold text-danger">Remove</button>
@@ -119,6 +157,23 @@ export default function UsersPage() {
               ))}
             </Table>
           )}
+        </Card>
+        <Card className="h-fit w-full lg:w-[340px]">
+          <h2 className="mb-4 text-xl font-extrabold">{editingId ? "Edit user" : "Add user"}</h2>
+          <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+            <Field id="name" label="Full name" placeholder="e.g. Tunde Bello" value={name} onChange={(e) => setName(e.target.value)} error={nameError} />
+            <Select id="role" label="Role" options={["student", "teacher"]} value={role} onChange={(e) => setRole(e.target.value as "teacher" | "student")} />
+            {role === "student"
+              ? <Select id="class" label="Class" options={CLASSES} value={className} onChange={(e) => setClassName(e.target.value)} />
+              : (
+                <>
+                  <Field id="subject" label="Subject" placeholder="e.g. Mathematics" value={subject} onChange={(e) => setSubject(e.target.value)} />
+                  <Field id="email" label="Email (for their login)" type="email" placeholder="e.g. teacher@school.com" value={email} onChange={(e) => setEmail(e.target.value)} error={emailError} />
+                </>
+              )}
+            <Button type="submit" loading={saving}>{editingId ? "Save changes" : "Add user"}</Button>
+            {editingId && <Button type="button" variant="outline" onClick={reset}>Cancel</Button>}
+          </form>
         </Card>
       </div>
     </div>

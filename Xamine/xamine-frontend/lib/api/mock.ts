@@ -1,17 +1,29 @@
 import {
-  ApiError, type Attempt, type AttemptResult, type Exam, type ExamStatus,type ExamResultRow,
-  type School, type Session, type SchoolUser, type XamineApi,
+  ApiError, type Attempt, type AttemptResult, type DashboardSummary, type Exam, type ExamResultRow,
+  type ExamStatus, type School, type Session, type SchoolUser, type XamineApi,
 } from "./types";
 import { getActiveSchoolId } from "../schoolContext";
 
 // Mock implementation for building screens before the backend exists.
-// Demo rules: any valid email + password works, except the password "wrongpassword",
-// which fails so you can see the error state. Reset token "expired" fails too.
+// Demo rules: the operator signs in with the email and password below. A school admin or teacher who has
+// a login signs in with their own email and password. Anything else is refused. Reset token "expired" fails too.
+// Change these two lines to your own details while you build.
+const OPERATOR_EMAIL = "davidolumide771@gmail.com";
+const OPERATOR_PASSWORD = "operator123";
 const KEY = "xamine.session";
 const wait = (ms = 500) => new Promise((r) => setTimeout(r, ms));
 
 const DB_KEY = "xamine.db";
-interface Db { schools: School[]; users: SchoolUser[]; exams: Exam[]; attempts: Attempt[] }
+// Mock-only: staff logins (a real backend stores hashed passwords and hashed codes).
+interface StaffAccount {
+  id: string; schoolId: string; name: string; email: string; password: string;
+  role: "school_admin" | "teacher"; userId?: string; // userId links a teacher login to their user record
+}
+interface AccessCodeRecord { schoolId: string; code: string; used: boolean }
+interface Db {
+  schools: School[]; users: SchoolUser[]; exams: Exam[]; attempts: Attempt[];
+  staff: StaffAccount[]; accessCodes: AccessCodeRecord[];
+}
 const uid = () => Math.random().toString(36).slice(2, 10);
 // No 0/O or 1/I/L, so printed numbers are hard to misread.
 const NUMBER_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -42,8 +54,11 @@ function seed(): Db {
         attemptLimit: 1, shuffle: false, status: "draft", createdAt: new Date().toISOString(), questions: [] },
     ],
     attempts: [],
+    staff: [],
+    accessCodes: [],
   };
 }
+
 // The public demo: a sample school, one student and one always-open exam, so anyone can try Xamine.
 const DEMO_NUMBER = "DEMO-1234";
 function ensureDemo(db: Db): boolean {
@@ -80,6 +95,8 @@ function load(): Db {
   const db: Db = raw ? (JSON.parse(raw) as Db) : seed();
   db.schools ??= [demoSchool()]; // data saved before schools existed
   db.attempts ??= []; // data saved before exam taking existed
+  db.staff ??= []; // data saved before staff logins existed
+  db.accessCodes ??= [];
   const added = ensureDemo(db); // the public demo school is always present
   if (!raw || added) localStorage.setItem(DB_KEY, JSON.stringify(db));
   return db;
@@ -91,8 +108,34 @@ function findExam(db: Db, id: string) {
   if (!e) throw notFound("Exam");
   return e;
 }
-// An exam with no date can start as soon as it is open.
-const hasStarted = (e: Exam) => !e.startsAt || Date.now() >= new Date(e.startsAt).getTime();
+
+// ---- Who is calling (the mock keeps the login in the browser) ----
+const sessionUser = () => { const raw = localStorage.getItem(KEY); return raw ? (JSON.parse(raw) as Session).user : null; };
+// Only the operator may manage schools.
+function operatorOnly() {
+  const role = sessionUser()?.role;
+  if (role === "school_admin" || role === "teacher") throw new ApiError({ code: "FORBIDDEN", message: "Only the operator can do this." });
+}
+// Teachers prepare their own exams. Users, opening, closing and releasing are for the school admin.
+function notTeacher() {
+  if (sessionUser()?.role === "teacher") throw new ApiError({ code: "FORBIDDEN", message: "Ask your school admin to do this." });
+}
+// A teacher can reach only the exams they created.
+function ownExam(db: Db, id: string) {
+  const e = findExam(db, id);
+  const me = sessionUser();
+  if (me?.role === "teacher" && e.createdBy !== me.id) throw notFound("Exam");
+  return e;
+}
+function accessStatus(db: Db, schoolId: string) {
+  const list = db.accessCodes.filter((c) => c.schoolId === schoolId);
+  if (!list.length) return "none" as const;
+  return list.some((c) => !c.used) ? ("issued" as const) : ("used" as const);
+}
+const sessionFor = (a: StaffAccount): Session => ({
+  token: `mock-staff-${a.id}`,
+  user: { id: a.id, schoolId: a.schoolId, name: a.name, email: a.email, role: a.role },
+});
 
 // ---- Taking an exam ----
 const shuffled = <T,>(list: T[]) => {
@@ -105,8 +148,7 @@ const shuffled = <T,>(list: T[]) => {
 };
 // The logged-in student, or an error. Staff cannot call the attempt methods.
 function currentStudent() {
-  const raw = localStorage.getItem(KEY);
-  const u = raw ? (JSON.parse(raw) as Session).user : null;
+  const u = sessionUser();
   if (!u || u.role !== "student") throw new ApiError({ code: "FORBIDDEN", message: "Only students can do this." });
   return u;
 }
@@ -122,6 +164,8 @@ function ownAttempt(db: Db, id: string) {
 function closeIfExpired(db: Db, a: Attempt) {
   if (!a.submittedAt && Date.now() > new Date(a.endsAt).getTime()) { a.submittedAt = a.endsAt; save(db); }
 }
+// Has the exam's start time arrived? An exam with no date can start as soon as it is open.
+const hasStarted = (e: Exam) => !e.startsAt || Date.now() >= new Date(e.startsAt).getTime();
 function grade(db: Db, a: Attempt): AttemptResult {
   const key = new Map(findExam(db, a.examId).questions.map((q) => [q.id, q.correctIndex] as const));
   let correct = 0, wrong = 0;
@@ -138,8 +182,13 @@ function grade(db: Db, a: Attempt): AttemptResult {
 }
 
 export const mockApi: XamineApi = {
-  async listSchools() { await wait(200); return clone(load().schools); },
+  async listSchools() {
+    await wait(200); const db = load(); const me = sessionUser();
+    const visible = me && me.role !== "admin" ? db.schools.filter((s) => s.id === me.schoolId) : db.schools;
+    return clone(visible.map((s) => ({ ...s, accessCodeStatus: accessStatus(db, s.id) })));
+  },
   async createSchool(input) {
+    operatorOnly();
     await wait(250);
     const db = load();
     const code = input.code.trim().toUpperCase();
@@ -153,30 +202,86 @@ export const mockApi: XamineApi = {
     db.schools.push(s); save(db);
     return clone(s);
   },
+  async issueSchoolAccessCode(schoolId) {
+    operatorOnly();
+    await wait(300);
+    const db = load();
+    if (!db.schools.some((s) => s.id === schoolId)) throw notFound("School");
+    db.accessCodes = db.accessCodes.filter((c) => c.schoolId !== schoolId || c.used); // a new code replaces an unused one
+    const code = `${randomChunk(4)}-${randomChunk(4)}-${randomChunk(4)}`;
+    db.accessCodes.push({ schoolId, code, used: false }); save(db);
+    return { code };
+  },
 
-  async listUsers() { await wait(250); const sid = getActiveSchoolId(); return clone(load().users.filter((u) => u.schoolId === sid)); },
+  async getDashboard() {
+    await wait(250);
+    const db = load(); const me = sessionUser();
+    const oneSchool = me && me.role !== "admin" ? me.schoolId : null;
+    const mine = me && me.role === "teacher" ? me.id : null;
+    const schools = db.schools.filter((s) => !oneSchool || s.id === oneSchool);
+    const ids = new Set(schools.map((s) => s.id));
+    const exams = db.exams.filter((e) => ids.has(e.schoolId) && (!mine || e.createdBy === mine));
+    const examIds = new Set(exams.map((e) => e.id));
+    const name = (id: string) => db.schools.find((s) => s.id === id)?.name ?? "";
+    const upcoming = exams
+      .filter((e) => e.status === "open" || e.status === "scheduled")
+      .sort((a, b) => (a.startsAt ?? "9999").localeCompare(b.startsAt ?? "9999"))
+      .slice(0, 5)
+      .map((e) => ({ id: e.id, title: e.title, className: e.className, subject: e.subject, startsAt: e.startsAt, status: e.status, schoolName: name(e.schoolId) }));
+    return clone<DashboardSummary>({
+      scope: mine ? "mine" : oneSchool ? "school" : "all",
+      schoolName: oneSchool ? name(oneSchool) : undefined,
+      schools: schools.length,
+      students: db.users.filter((u) => ids.has(u.schoolId) && u.role === "student").length,
+      exams: exams.length,
+      openExams: exams.filter((e) => e.status === "open").length,
+      submitted: db.attempts.filter((a) => a.submittedAt && examIds.has(a.examId)).length,
+      upcoming,
+      schoolRows: oneSchool ? undefined : schools.map((s) => ({
+        id: s.id, name: s.name, code: s.code,
+        students: db.users.filter((u) => u.schoolId === s.id && u.role === "student").length,
+        exams: db.exams.filter((e) => e.schoolId === s.id).length,
+        openExams: db.exams.filter((e) => e.schoolId === s.id && e.status === "open").length,
+        adminStatus: accessStatus(db, s.id),
+      })),
+    });
+  },
+
+  async listUsers() {
+    notTeacher();
+    await wait(250); const sid = getActiveSchoolId(); const db = load();
+    return clone(db.users.filter((u) => u.schoolId === sid).map((u) => ({ ...u, hasLogin: db.staff.some((a) => a.userId === u.id) })));
+  },
   async createUser(input) {
+    notTeacher();
     await wait(250);
     const db = load(); const u: SchoolUser = { ...input, id: uid(), schoolId: getActiveSchoolId() };
     db.users.push(u); save(db); return clone(u);
   },
   async updateUser(id, input) {
+    notTeacher();
     await wait(250);
     const db = load(); const i = db.users.findIndex((u) => u.id === id);
     if (i < 0) throw notFound("User");
     db.users[i] = { ...db.users[i], ...input }; save(db); return clone(db.users[i]);
   },
   async deleteUser(id) {
+    notTeacher();
     await wait(250);
-    const db = load(); db.users = db.users.filter((u) => u.id !== id); save(db);
+    const db = load();
+    db.users = db.users.filter((u) => u.id !== id);
+    db.staff = db.staff.filter((a) => a.userId !== id); // a removed teacher loses their login too
+    save(db);
   },
   async importUsers(rows) {
+    notTeacher();
     await wait(400);
     const db = load();
     rows.forEach((r) => db.users.push({ ...r, id: uid(), schoolId: getActiveSchoolId() }));
     save(db); return { created: rows.length };
   },
   async generateExamNumbers() {
+    notTeacher();
     await wait(400);
     const db = load(); const sid = getActiveSchoolId();
     const school = db.schools.find((s) => s.id === sid);
@@ -191,18 +296,38 @@ export const mockApi: XamineApi = {
     }
     save(db); return { created };
   },
+  async createTeacherLogin(userId) {
+    notTeacher();
+    await wait(400);
+    const db = load(); const sid = getActiveSchoolId();
+    const u = db.users.find((x) => x.id === userId && x.schoolId === sid && x.role === "teacher");
+    if (!u) throw notFound("Teacher");
+    if (!u.email) throw new ApiError({ code: "NO_EMAIL", message: "Add the teacher's email first, then create the login." });
+    if (db.staff.some((a) => a.userId === u.id)) throw new ApiError({ code: "LOGIN_EXISTS", message: "This teacher already has a login." });
+    const mail = u.email.trim().toLowerCase();
+    if (db.staff.some((a) => a.email === mail)) {
+      throw new ApiError({ code: "EMAIL_TAKEN", message: "An account with this email already exists." });
+    }
+    const tempPassword = `${randomChunk(5)}-${randomChunk(5)}`;
+    db.staff.push({ id: uid(), schoolId: u.schoolId, name: u.name, email: mail, password: tempPassword, role: "teacher", userId: u.id });
+    save(db);
+    return { email: mail, tempPassword };
+  },
 
-  async listExams() { await wait(250); const sid = getActiveSchoolId(); return clone(load().exams.filter((e) => e.schoolId === sid)); },
-  async getExam(id) { await wait(150); return clone(findExam(load(), id)); },
+  async listExams() {
+    await wait(250); const sid = getActiveSchoolId(); const me = sessionUser();
+    return clone(load().exams.filter((e) => e.schoolId === sid && (me?.role !== "teacher" || e.createdBy === me.id)));
+  },
+  async getExam(id) { await wait(150); return clone(ownExam(load(), id)); },
   async createExam(input) {
     await wait(350);
     const db = load();
-    const e: Exam = { ...input, id: uid(), schoolId: getActiveSchoolId(), createdAt: new Date().toISOString() };
+    const e: Exam = { ...input, id: uid(), schoolId: getActiveSchoolId(), createdBy: sessionUser()?.id, createdAt: new Date().toISOString() };
     db.exams.unshift(e); save(db); return clone(e);
   },
   async updateExam(id, input) {
     await wait(350);
-    const db = load(); const e = findExam(db, id);
+    const db = load(); const e = ownExam(db, id);
     if (e.status === "open" || e.status === "closed") {
       throw new ApiError({ code: "EXAM_LOCKED", message: "An open or closed exam cannot be edited." });
     }
@@ -210,14 +335,15 @@ export const mockApi: XamineApi = {
   },
   async duplicateExam(id) {
     await wait(350);
-    const db = load(); const src = findExam(db, id);
-    const copy: Exam = { ...clone(src), id: uid(), title: `${src.title} (copy)`, status: "draft",
-      createdAt: new Date().toISOString(), questions: src.questions.map((q) => ({ ...clone(q), id: uid() })) };
+    const db = load(); const src = ownExam(db, id);
+    const copy: Exam = { ...clone(src), id: uid(), title: `${src.title} (copy)`, status: "draft", resultsReleased: false,
+      createdBy: sessionUser()?.id, createdAt: new Date().toISOString(), questions: src.questions.map((q) => ({ ...clone(q), id: uid() })) };
     db.exams.unshift(copy); save(db); return clone(copy);
   },
   async setExamStatus(id, status: ExamStatus) {
     await wait(300);
-    const db = load(); const e = findExam(db, id);
+    if (status === "open" || status === "closed") notTeacher();
+    const db = load(); const e = ownExam(db, id);
     if (status === "scheduled" && e.questions.length === 0) {
       throw new ApiError({ code: "NO_QUESTIONS", message: "Add at least one question before scheduling." });
     }
@@ -233,6 +359,7 @@ export const mockApi: XamineApi = {
     e.status = status; save(db); return clone(e);
   },
   async setExamStartTime(id, startsAt) {
+    notTeacher();
     await wait(250);
     const db = load();
     const e = findExam(db, id);
@@ -242,7 +369,7 @@ export const mockApi: XamineApi = {
     e.startsAt = startsAt; save(db);
     return clone(e);
   },
-  
+
   async listMyExams() {
     await wait(250);
     const me = currentStudent(); const db = load();
@@ -321,7 +448,7 @@ export const mockApi: XamineApi = {
       save(db);
     }
   },
-    async getAttemptResult(id) {
+  async getAttemptResult(id) {
     await wait(150);
     const db = load(); const a = ownAttempt(db, id); closeIfExpired(db, a);
     if (!a.submittedAt) throw new ApiError({ code: "NOT_SUBMITTED", message: "This exam has not been submitted yet." });
@@ -333,7 +460,7 @@ export const mockApi: XamineApi = {
 
   async listExamResults(examId) {
     await wait(250);
-    const db = load(); const exam = findExam(db, examId);
+    const db = load(); const exam = ownExam(db, examId);
     const rows = db.users
       .filter((u) => u.schoolId === exam.schoolId && u.role === "student" && u.className === exam.className)
       .sort((a, b) => a.name.localeCompare(b.name))
@@ -351,7 +478,8 @@ export const mockApi: XamineApi = {
       });
     return clone(rows);
   },
-   async setResultsReleased(examId, released) {
+  async setResultsReleased(examId, released) {
+    notTeacher();
     await wait(250);
     const db = load();
     const e = findExam(db, examId);
@@ -361,15 +489,22 @@ export const mockApi: XamineApi = {
     e.resultsReleased = released; save(db);
     return clone(e);
   },
+
   async login({ email, password }) {
     await wait();
-    if (password === "wrongpassword") {
+    const db = load();
+    const acct = db.staff.find((a) => a.email === email.trim().toLowerCase());
+    if (acct) {
+      if (acct.password !== password) throw new ApiError({ code: "INVALID_CREDENTIALS", message: "Incorrect email or password." });
+      const session = sessionFor(acct);
+      localStorage.setItem(KEY, JSON.stringify(session));
+      localStorage.setItem("xamine.school", acct.schoolId);
+      return session;
+    }
+    if (email.trim().toLowerCase() !== OPERATOR_EMAIL.toLowerCase() || password !== OPERATOR_PASSWORD) {
       throw new ApiError({ code: "INVALID_CREDENTIALS", message: "Incorrect email or password." });
     }
-    const session: Session = {
-      token: "mock-token",
-      user: { id: "u1", schoolId: "s1", name: "John Doe", email, role: "admin" },
-    };
+    const session: Session = { token: "mock-token", user: { id: "u1", schoolId: getActiveSchoolId(), name: "John Doe", email, role: "admin" } };
     localStorage.setItem(KEY, JSON.stringify(session));
     return session;
   },
@@ -385,6 +520,23 @@ export const mockApi: XamineApi = {
       user: { id: u.id, schoolId: u.schoolId, name: u.name, role: "student", className: u.className },
     };
     localStorage.setItem(KEY, JSON.stringify(session));
+    return session;
+  },
+  async joinSchool({ accessCode, name, email, password }) {
+    await wait(500);
+    const db = load();
+    const clean = (s: string) => s.toUpperCase().replace(/[\s-]/g, "");
+    const entry = db.accessCodes.find((c) => !c.used && clean(c.code) === clean(accessCode));
+    if (!entry) throw new ApiError({ code: "INVALID_ACCESS_CODE", message: "That access code is not valid, or it has already been used." });
+    const mail = email.trim().toLowerCase();
+    if (db.staff.some((a) => a.email === mail)) {
+      throw new ApiError({ code: "EMAIL_TAKEN", message: "An account with this email already exists.", fieldErrors: { email: "Already in use." } });
+    }
+    const acct: StaffAccount = { id: uid(), schoolId: entry.schoolId, name: name.trim(), email: mail, password, role: "school_admin" };
+    db.staff.push(acct); entry.used = true; save(db);
+    const session = sessionFor(acct);
+    localStorage.setItem(KEY, JSON.stringify(session));
+    localStorage.setItem("xamine.school", acct.schoolId);
     return session;
   },
   async requestPasswordReset() { await wait(); },

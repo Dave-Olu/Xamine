@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { api, ApiError, type Exam, type ExamStatus } from "@/lib/api";
+import { api, ApiError, type Exam, type ExamStatus, type Role } from "@/lib/api";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -33,8 +33,10 @@ export default function ExamsPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [timeFor, setTimeFor] = useState<Exam | null>(null);
   const [timeValue, setTimeValue] = useState("");
+  const [role, setRole] = useState<Role | null>(null);
   const refresh = () => api.listExams().then(setExams);
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => { refresh(); api.getSession().then((s) => setRole(s?.user.role ?? null)); }, []);
+  const teacher = role === "teacher"; // teachers prepare exams; the school admin opens and closes them
 
   // Returns true when the action worked.
   async function run(id: string, fn: () => Promise<unknown>) {
@@ -59,7 +61,9 @@ export default function ExamsPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-[32px] font-extrabold">Exams</h1>
-          <p className="text-muted">Create exams and control when students can start them.</p>
+          <p className="text-muted">
+            {teacher ? "Create and schedule your exams. Your school admin opens them when they are ready." : "Create exams and control when students can start them."}
+          </p>
         </div>
         <Link href="/exams/new" className="rounded-xl bg-brand px-6 py-3.5 font-bold text-white hover:bg-brand-dark">Create exam</Link>
       </div>
@@ -89,7 +93,8 @@ export default function ExamsPage() {
         ) : (
           <Table heads={["Exam", "Class", "Starts", "Questions", "Duration", "Status", "Action"]}>
             {exams.map((e) => {
-              const next = NEXT[e.status];
+              const step = NEXT[e.status];
+              const next = step && (!teacher || step.to === "scheduled") ? step : undefined;
               return (
                 <tr key={e.id}>
                   <td className="font-semibold">{e.title}</td>
@@ -114,7 +119,7 @@ export default function ExamsPage() {
                     {(e.status === "draft" || e.status === "scheduled") && (
                       <Link href={`/exams/${e.id}/edit`} className="mr-4 font-bold text-brand">Edit</Link>
                     )}
-                    {e.status === "open" && (
+                    {e.status === "open" && !teacher && (
                       <button onClick={() => openTimeEditor(e)} className="mr-4 font-bold text-brand">Change time</button>
                     )}
                     {(e.status === "open" || e.status === "closed") && (

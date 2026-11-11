@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { api, ApiError, type Exam, type ExamResultRow } from "@/lib/api";
+import { api, ApiError, type Exam, type ExamResultRow, type Role } from "@/lib/api";
 import { downloadText } from "@/lib/csv";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
@@ -18,9 +18,12 @@ export default function ResultsPage() {
   const [rows, setRows] = useState<ExamResultRow[] | null>(null);
   const [message, setMessage] = useState<{ kind: "error" | "success"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [role, setRole] = useState<Role | null>(null);
+  const teacher = role === "teacher"; // teachers can read results but only the school admin releases them
 
   // Only exams that have been opened can have results.
   useEffect(() => {
+    api.getSession().then((s) => setRole(s?.user.role ?? null));
     api.listExams().then((all) => {
       const usable = all.filter((e) => e.status === "open" || e.status === "closed");
       setExams(usable);
@@ -76,7 +79,9 @@ export default function ResultsPage() {
     <div className="flex flex-col gap-6">
       <div className="print:hidden">
         <h1 className="text-[32px] font-extrabold">Results</h1>
-        <p className="text-muted">See who has taken each exam, and release scores to students.</p>
+        <p className="text-muted">
+          {teacher ? "See who has taken your exams. Your school admin releases scores to students." : "See who has taken each exam, and release scores to students."}
+        </p>
       </div>
       {message && <div className="print:hidden"><Alert kind={message.kind}>{message.text}</Alert></div>}
 
@@ -97,11 +102,13 @@ export default function ResultsPage() {
                   <span className={`rounded-full px-3 py-1 text-sm font-bold ${exam.resultsReleased ? "bg-success-soft text-success" : "bg-surface text-muted"}`}>
                     {exam.resultsReleased ? "Results released" : "Results hidden"}
                   </span>
-                  <div className="w-full sm:w-44">
-                    <Button variant={exam.resultsReleased ? "outline" : "primary"} loading={busy} onClick={toggleRelease}>
-                      {exam.resultsReleased ? "Hide results" : "Release results"}
-                    </Button>
-                  </div>
+                  {!teacher && (
+                    <div className="w-full sm:w-44">
+                      <Button variant={exam.resultsReleased ? "outline" : "primary"} loading={busy} onClick={toggleRelease}>
+                        {exam.resultsReleased ? "Hide results" : "Release results"}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -126,7 +133,7 @@ export default function ResultsPage() {
               {rows === null ? <p className="py-3 text-muted">Loading...</p> : rows.length === 0 ? (
                 <p className="py-3 text-muted">No students in {exam.className} yet.</p>
               ) : (
-                <Table heads={["Name", "Exam number", "Status", "Score", "Percent"]}>
+                <Table heads={["Name", "Exam number", "Status", "Score", "Percent"]} label="Exam results">
                   {rows.map((r) => (
                     <tr key={r.studentId}>
                       <td className="font-semibold">{r.name}</td>
